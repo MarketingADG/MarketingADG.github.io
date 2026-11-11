@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Van 30 naar 2 minuten</title>
+<!-- Zelfde animatie als wip/animatie-offertetijd/index.html, alleen de fontpaden
+     verschillen (hier /fonts/ voor hosting, daar relatief voor file://).
+     Wijzigingen in beide bestanden doorvoeren. -->
+<style>
+  /* Toyota-huisstijl, zelfde fonts als de module (relatief pad naar site/fonts) */
+  @font-face{font-family:'Toyota Type';src:url('/fonts/ToyotaType-Book.otf') format('opentype');font-weight:400;font-display:swap}
+  @font-face{font-family:'Toyota Type';src:url('/fonts/ToyotaType-Regular.otf') format('opentype');font-weight:500;font-display:swap}
+  @font-face{font-family:'Toyota Type';src:url('/fonts/ToyotaType-Semibold.otf') format('opentype');font-weight:600;font-display:swap}
+  @font-face{font-family:'Toyota Type';src:url('/fonts/ToyotaType-Semibold.otf') format('opentype');font-weight:700;font-display:swap}
+
+  :root{
+    --rood:#EB0A1E;
+    --ink:#282830;
+    --muted:#6b7280;
+    --bg:#fafafa;
+    --kaart:#ffffff;
+    --lijn:#e5e7eb;
+    --groen:#15803d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Toyota Type',sans-serif;background:var(--bg);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* vast canvas 16:9, geschaald naar het venster (handig voor opname) */
+  .stage{
+    width:1600px;height:900px;position:relative;flex:0 0 auto;
+    transform-origin:center center;
+  }
+
+  .merkbalk{
+    position:absolute;top:44px;left:72px;right:72px;
+    display:flex;align-items:baseline;justify-content:space-between;
+  }
+  .merkbalk .wm{font-size:26px;font-weight:700;letter-spacing:-.01em}
+  .merkbalk .wm span{color:var(--rood)}
+  .merkbalk .sub{font-size:20px;color:var(--muted)}
+
+  .titel{
+    position:absolute;top:118px;left:72px;
+    font-size:44px;font-weight:700;letter-spacing:-.015em;
+    opacity:0;transform:translateY(14px);
+    transition:opacity .6s ease,transform .6s cubic-bezier(.2,.9,.25,1);
+  }
+  body.start .titel{opacity:1;transform:none}
+
+  .kolommen{
+    position:absolute;top:210px;left:72px;right:72px;bottom:72px;
+    display:grid;grid-template-columns:1fr 1fr;gap:40px;
+  }
+  .kaart{
+    background:var(--kaart);border:1px solid var(--lijn);border-radius:18px;
+    padding:36px 40px;position:relative;overflow:hidden;
+    box-shadow:0 10px 30px rgba(40,40,48,.06);
+    transition:opacity .8s ease,filter .8s ease;
+  }
+  body.einde .kaart.oud{opacity:.45;filter:grayscale(.6)}
+  .kaart.module{border-top:5px solid var(--rood)}
+  .kaart h2{font-size:25px;font-weight:600;letter-spacing:-.01em}
+  .kaart .onder{font-size:17px;color:var(--muted);margin-top:4px;min-height:22px}
+
+  .klok{
+    position:absolute;top:30px;right:40px;text-align:right;
+    font-size:64px;font-weight:700;letter-spacing:0;
+    font-variant-numeric:tabular-nums;line-height:1;
+  }
+  .klok small{display:block;font-size:15px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-top:6px}
+  .kaart.module .klok.klaar{color:var(--groen)}
+
+  .stappen{margin-top:84px;display:flex;flex-direction:column;gap:13px}
+  .stap{
+    display:flex;align-items:center;gap:14px;font-size:21px;
+    opacity:0;transform:translateX(-14px);
+    transition:opacity .4s ease,transform .45s cubic-bezier(.2,.9,.25,1);
+  }
+  .stap.zichtbaar{opacity:1;transform:none}
+  .stap .vink{
+    width:28px;height:28px;border-radius:50%;flex:0 0 28px;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid var(--lijn);color:transparent;font-size:15px;font-weight:700;
+    transition:all .3s ease;
+  }
+  .stap.af .vink{border-color:var(--groen);background:#f0fdf4;color:var(--groen)}
+  .kaart.module .stap.af .vink{border-color:var(--rood);background:#fef2f2;color:var(--rood)}
+  .stap.bezig .vink{border-color:var(--muted)}
+  .stap .t{color:var(--muted);margin-left:auto;font-size:17px;font-variant-numeric:tabular-nums}
+
+  .status{
+    position:absolute;left:40px;right:40px;bottom:34px;
+    font-size:20px;font-weight:600;opacity:0;transform:translateY(8px);
+    transition:opacity .5s ease,transform .5s ease;
+  }
+  .status.zichtbaar{opacity:1;transform:none}
+  .kaart.module .status{color:var(--groen)}
+  .kaart.oud .status{color:var(--muted);font-weight:400}
+
+  /* stapel mini-offertes rechts */
+  .stapel{
+    position:absolute;right:40px;bottom:80px;left:40px;height:168px;
+    display:flex;flex-wrap:wrap;gap:10px;align-content:flex-end;
+  }
+  .a4{
+    width:56px;height:76px;background:#fff;border:1px solid var(--lijn);
+    border-radius:4px;box-shadow:0 4px 10px rgba(40,40,48,.10);
+    position:relative;opacity:0;transform:translateY(16px) scale(.9);
+    transition:opacity .35s ease,transform .4s cubic-bezier(.2,.9,.25,1);
+  }
+  .a4.zichtbaar{opacity:1;transform:none}
+  .a4::before{content:"";position:absolute;left:8px;right:8px;top:9px;height:6px;background:var(--ink);border-radius:2px}
+  .a4::after{
+    content:"";position:absolute;left:8px;right:16px;top:21px;height:34px;
+    background:
+      linear-gradient(var(--lijn),var(--lijn)) 0 0/100% 3px no-repeat,
+      linear-gradient(var(--lijn),var(--lijn)) 0 8px/85% 3px no-repeat,
+      linear-gradient(var(--lijn),var(--lijn)) 0 16px/92% 3px no-repeat,
+      linear-gradient(var(--lijn),var(--lijn)) 0 24px/70% 3px no-repeat,
+      linear-gradient(var(--rood),var(--rood)) 0 30px/55% 4px no-repeat;
+  }
+  .a4 .nr{
+    position:absolute;bottom:3px;right:5px;font-size:11px;font-weight:600;
+    color:var(--muted);font-variant-numeric:tabular-nums;
+  }
+
+  /* eindkaart */
+  .eind{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(250,250,250,0);pointer-events:none;opacity:0;
+    transition:opacity .7s ease;
+  }
+  body.einde .eind{opacity:1;background:rgba(250,250,250,.88)}
+  .eind .paneel{
+    text-align:center;transform:translateY(20px) scale(.97);
+    transition:transform .7s cubic-bezier(.2,.9,.25,1);
+  }
+  body.einde .eind .paneel{transform:none}
+  .eind .groot{
+    font-size:120px;font-weight:700;letter-spacing:-.02em;line-height:1.05;
+    font-variant-numeric:tabular-nums;
+  }
+  .eind .groot b{color:var(--rood);font-weight:700}
+  .eind .pijl{display:inline-block;margin:0 28px;color:var(--muted);font-weight:400}
+  .eind .per{font-size:30px;color:var(--muted);margin-top:14px}
+  .eind .som{
+    font-size:26px;margin-top:44px;color:var(--ink);
+    border-top:1px solid var(--lijn);padding-top:28px;
+  }
+  .eind .som b{color:var(--rood)}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="merkbalk">
+    <div class="wm">ADG<span>.</span> Offertemodule</div>
+    <div class="sub">Toyota &amp; Suzuki Veendam</div>
+  </div>
+  <div class="titel">Bespaar tot 28 minuten per offerte met de ADG Offertemodule.</div>
+
+  <div class="kolommen">
+    <div class="kaart oud">
+      <h2>Zonder module</h2>
+      <div class="onder">handwerk per offerte</div>
+      <div class="klok" id="klok_oud">00:00<small>minuten</small></div>
+      <div class="stappen" id="stappen_oud"></div>
+      <div class="status" id="status_oud">Nog steeds bezig met dezelfde offerte.</div>
+    </div>
+
+    <div class="kaart module">
+      <h2>Met de offertemodule</h2>
+      <div class="onder">alles doorgerekend uit de prijslijst</div>
+      <div class="klok" id="klok_mod">00:00<small>minuten</small></div>
+      <div class="stappen" id="stappen_mod"></div>
+      <div class="stapel" id="stapel"></div>
+      <div class="status" id="status_mod">Offerte geprint. Door naar de volgende klant.</div>
+    </div>
+  </div>
+
+  <div class="eind">
+    <div class="paneel">
+      <div class="groot">30 min <span class="pijl">&rarr;</span> <b>2 min</b></div>
+      <div class="per">per offerte</div>
+      <div class="som">Dezelfde 30 minuten: 1 offerte op de oude manier, <b>15 offertes</b> uit de module.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Tijdlijn: 17 s animatie = 30 min echte tijd (factor 106). De module is klaar
+   op 4 s (= 2 min) en stapelt daarna elke 1,13 s (= 2 min) een volgende offerte,
+   tot er 15 staan als links op 30:00 eindigt. Daarna de eindkaart, dan loopt hij
+   opnieuw. Bij "minder beweging" (prefers-reduced-motion) staat alleen de
+   eindkaart, zonder race. */
+const DUUR = 17;            /* s animatie voor 30 min */
+const MOD_KLAAR = 4;        /* s waarop de module op 02:00 staat */
+const EIND_HOLD = 6;        /* s dat de eindkaart blijft staan */
+const LOOP = DUUR + 1 + EIND_HOLD;
+
+const STAPPEN_OUD = [
+  ["Prijslijst-PDF erbij zoeken", 2.2],
+  ["Uitvoering en kleurmeerprijs opzoeken", 4.8],
+  ["BPM, btw en rijklaarkosten narekenen", 7.6],
+  ["Inruilauto opzoeken en verrekenen", 10.2],
+  ["Bedragen nog een keer controleren", 12.6],
+  ["Codes invoeren in CAR IT", 14.8],
+  ["Typefout gevonden, opnieuw printen", 16.6]
+];
+const STAPPEN_MOD = [
+  ["Model en uitvoering kiezen", 1.0, "0:20"],
+  ["Klant: postcode wordt vanzelf adres", 1.9, "0:50"],
+  ["Inruil: kenteken haalt de RDW-data op", 2.9, "1:20"],
+  ["Printen als PDF", 3.8, "2:00"]
+];
+
+function bouw(lijstId, stappen, metTijd) {
+  const el = document.getElementById(lijstId);
+  return stappen.map(s => {
+    const d = document.createElement("div");
+    d.className = "stap";
+    d.innerHTML = `<span class="vink">✓</span><span>${s[0]}</span>` + (metTijd ? `<span class="t">${s[2]}</span>` : "");
+    el.appendChild(d);
+    return d;
+  });
+}
+const elOud = bouw("stappen_oud", STAPPEN_OUD, false);
+const elMod = bouw("stappen_mod", STAPPEN_MOD, true);
+
+const stapel = document.getElementById("stapel");
+const a4s = [];
+for (let i = 0; i < 15; i++) {
+  const d = document.createElement("div");
+  d.className = "a4";
+  d.innerHTML = `<span class="nr">${i + 1}</span>`;
+  stapel.appendChild(d);
+  a4s.push(d);
+}
+
+const klokOud = document.getElementById("klok_oud");
+const klokMod = document.getElementById("klok_mod");
+function mmss(sec) {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+
+/* het canvas meeschalen met het venster */
+function schaal() {
+  const k = Math.min(innerWidth / 1600, innerHeight / 900);
+  document.getElementById("stage").style.transform = `scale(${k})`;
+}
+addEventListener("resize", schaal); schaal();
+
+const rustig = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let start = performance.now();
+
+function frame(nu) {
+  let t = (nu - start) / 1000;
+  if (rustig) t = DUUR + 0.5; /* meteen de eindkaart, zonder race */
+  if (t > LOOP && !rustig) { start = nu; t = 0;
+    document.body.classList.remove("einde");
+    elOud.concat(elMod).forEach(e => e.classList.remove("zichtbaar", "af", "bezig"));
+    a4s.forEach(a => a.classList.remove("zichtbaar"));
+    document.getElementById("status_oud").classList.remove("zichtbaar");
+    document.getElementById("status_mod").classList.remove("zichtbaar");
+    klokMod.classList.remove("klaar");
+  }
+  document.body.classList.toggle("start", t > 0.15);
+
+  /* klokken */
+  const oudSec = Math.min(1800, (t / DUUR) * 1800);
+  const modSec = Math.min(120, (t / MOD_KLAAR) * 120);
+  klokOud.firstChild.textContent = mmss(oudSec);
+  klokMod.firstChild.textContent = mmss(modSec);
+  klokMod.classList.toggle("klaar", t >= MOD_KLAAR);
+
+  /* stappen links: verschijnen en afvinken op hun tijdstip */
+  STAPPEN_OUD.forEach((s, i) => {
+    elOud[i].classList.toggle("zichtbaar", t >= s[1] - 1.6);
+    elOud[i].classList.toggle("bezig", t >= s[1] - 1.6 && t < s[1]);
+    elOud[i].classList.toggle("af", t >= s[1]);
+  });
+  STAPPEN_MOD.forEach((s, i) => {
+    elMod[i].classList.toggle("zichtbaar", t >= s[1] - 0.7);
+    elMod[i].classList.toggle("af", t >= s[1]);
+  });
+
+  document.getElementById("status_mod").classList.toggle("zichtbaar", t >= MOD_KLAAR + 0.4);
+  document.getElementById("status_oud").classList.toggle("zichtbaar", t >= 8);
+
+  /* elke 2 minuten (1,13 s) een volgende offerte op de stapel */
+  const n = t < MOD_KLAAR ? 0 : Math.min(15, 1 + Math.floor((t - MOD_KLAAR) / ((DUUR - MOD_KLAAR) / 14)));
+  a4s.forEach((a, i) => a.classList.toggle("zichtbaar", i < n));
+
+  document.body.classList.toggle("einde", t >= DUUR + 0.6);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
